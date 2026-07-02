@@ -7,6 +7,9 @@ from openpyxl.styles import Font
 
 st.title("📊 Trade Analyzer (BUY→SELL / SELL→BUY)")
 
+# ⏱ Time Box (user input in minutes)
+time_limit = st.number_input("Time difference limit (minutes)", min_value=1, max_value=120, value=30)
+
 uploaded_file = st.file_uploader("Excel file upload karein", type=["xlsx"])
 
 if uploaded_file is not None:
@@ -16,12 +19,11 @@ if uploaded_file is not None:
         sheet_name = list(df_dict.keys())[0]
         df = df_dict[sheet_name]
 
-        # Same cleaning as desktop script
         df.dropna(subset=['Order Time', 'Execute'], inplace=True)
         df['Order Time'] = pd.to_datetime(df['Order Time'], errors='coerce', dayfirst=True)
         df['Execute'] = pd.to_datetime(df['Execute'], errors='coerce').dt.time
 
-        # ⭐ CLIENT SORT CANCEL — only Symbol + Time sort
+        # ⭐ CLIENT SORT CANCEL — only Symbol sort
         df = df.sort_values(by=['Symbol', 'Order Time'])
 
         # ---------------------------------------------------------
@@ -42,10 +44,9 @@ if uploaded_file is not None:
 
                     time_diff = (sell_time - buy_time).total_seconds() / 60
 
-                    if 0 <= time_diff <= 30 and buy['Qty'] > 0 and sell['Qty'] > 0:
+                    if 0 <= time_diff <= time_limit and buy['Qty'] > 0 and sell['Qty'] > 0:
 
                         qty_traded = min(buy['Qty'], sell['Qty'])
-
                         rate_diff = round(sell['Order Price'] - buy['Order Price'], 2)
                         profit_loss = round((sell['Order Price'] - buy['Order Price']) * qty_traded, 2)
 
@@ -90,10 +91,9 @@ if uploaded_file is not None:
 
                     time_diff = (buy_time - sell_time).total_seconds() / 60
 
-                    if 0 <= time_diff <= 30 and sell['Qty'] > 0 and buy['Qty'] > 0:
+                    if 0 <= time_diff <= time_limit and sell['Qty'] > 0 and buy['Qty'] > 0:
 
                         qty_traded = min(sell['Qty'], buy['Qty'])
-
                         rate_diff = round(sell['Order Price'] - buy['Order Price'], 2)
                         profit_loss = round((sell['Order Price'] - buy['Order Price']) * qty_traded, 2)
 
