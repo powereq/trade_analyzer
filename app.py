@@ -2,28 +2,100 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 from io import BytesIO
-from openpyxl import load_workbook
-from openpyxl.styles import Font
 
-st.title("📊 Trade Analyzer (BUY→SELL / SELL→BUY)")
+# -----------------------------
+# 🔥 STYLISH PAGE CONFIG
+# -----------------------------
+st.set_page_config(
+    page_title="Trade Analyzer",
+    page_icon="📊",
+    layout="wide"
+)
 
-# ⏱ Time Box (user input in minutes)
-time_limit = st.number_input("Time difference limit (minutes)", min_value=1, max_value=120, value=30)
+# -----------------------------
+# 🔥 CUSTOM CSS (STYLISH UI)
+# -----------------------------
+st.markdown("""
+<style>
 
-uploaded_file = st.file_uploader("Excel file upload karein", type=["xlsx"])
+body {
+    background-color: #f5f7fa;
+}
 
+.big-title {
+    font-size: 42px;
+    font-weight: 800;
+    color: #0047AB;
+    text-align: center;
+    margin-bottom: 10px;
+}
+
+.sub-title {
+    font-size: 20px;
+    font-weight: 600;
+    color: #333;
+    text-align: center;
+    margin-bottom: 30px;
+}
+
+.box {
+    padding: 20px;
+    background: white;
+    border-radius: 12px;
+    border: 1px solid #e0e0e0;
+    box-shadow: 0px 3px 10px rgba(0,0,0,0.05);
+    margin-bottom: 20px;
+}
+
+input, select {
+    border-radius: 8px !important;
+}
+
+</style>
+""", unsafe_allow_html=True)
+
+# -----------------------------
+# 🔥 HEADER
+# -----------------------------
+st.markdown("<div class='big-title'>📊 Trade Analyzer</div>", unsafe_allow_html=True)
+st.markdown("<div class='sub-title'>BUY→SELL & SELL→BUY Auto Matching + PNL Filter</div>", unsafe_allow_html=True)
+
+# -----------------------------
+# 🔥 INPUT BOXES (TIME + PNL)
+# -----------------------------
+with st.container():
+    st.markdown("<div class='box'>", unsafe_allow_html=True)
+
+    time_limit = st.number_input(
+        "⏱ Time difference limit (minutes)",
+        min_value=1, max_value=500, value=30
+    )
+
+    pnl_limit = st.number_input(
+        "💰 Minimum PNL filter (₹)",
+        min_value=0, max_value=1000000, value=1000
+    )
+
+    uploaded_file = st.file_uploader("📁 Excel file upload karein", type=["xlsx"])
+
+    st.markdown("</div>", unsafe_allow_html=True)
+
+# -----------------------------
+# 🔥 PROCESSING LOGIC
+# -----------------------------
 if uploaded_file is not None:
     try:
-        # Read first sheet
         df_dict = pd.read_excel(uploaded_file, sheet_name=None)
         sheet_name = list(df_dict.keys())[0]
         df = df_dict[sheet_name]
 
         df.dropna(subset=['Order Time', 'Execute'], inplace=True)
+
         df['Order Time'] = pd.to_datetime(df['Order Time'], errors='coerce', dayfirst=True)
         df['Execute'] = pd.to_datetime(df['Execute'], errors='coerce').dt.time
 
-        # ⭐ CLIENT SORT CANCEL — only Symbol sort
+        df['Date'] = df['Order Time'].dt.date
+
         df = df.sort_values(by=['Symbol', 'Order Time'])
 
         # ---------------------------------------------------------
@@ -54,6 +126,7 @@ if uploaded_file is not None:
                             'Type': 'BUY→SELL',
                             'Client': client,
                             'Symbol': symbol,
+                            'Date': buy['Date'],
                             'Buy Qty': qty_traded,
                             'Sell Qty': qty_traded,
                             'Buy Rate': buy['Order Price'],
@@ -101,6 +174,7 @@ if uploaded_file is not None:
                             'Type': 'SELL→BUY',
                             'Client': client,
                             'Symbol': symbol,
+                            'Date': sell['Date'],
                             'Buy Qty': qty_traded,
                             'Sell Qty': qty_traded,
                             'Sell Rate': sell['Order Price'],
@@ -121,30 +195,16 @@ if uploaded_file is not None:
         sell_buy_df = pd.DataFrame(sell_buy_results)
 
         # ---------------------------------------------------------
-        # MERGE BOTH INTO ONE SHEET
+        # MERGE BOTH
         # ---------------------------------------------------------
         final_df = pd.concat([buy_sell_df, sell_buy_df], ignore_index=True)
 
-        # ⭐ FINAL SORT — ONLY SYMBOL A→Z
         final_df = final_df.sort_values(by=['Symbol'])
 
-        # REMOVE NEGATIVE PROFIT/LOSS
-        final_df = final_df[final_df['Profit/Loss'] > 0]
-
-        # Symbol-wise blank row
-        final_output = []
-        prev_symbol = None
-
-        for _, row in final_df.iterrows():
-            if prev_symbol is not None and prev_symbol != row['Symbol']:
-                final_output.append({col: '' for col in final_df.columns})
-            final_output.append(row.to_dict())
-            prev_symbol = row['Symbol']
-
-        final_df = pd.DataFrame(final_output)
+        final_df = final_df[final_df['Profit/Loss'] >= pnl_limit]
 
         # ---------------------------------------------------------
-        # Excel in memory (for download)
+        # DOWNLOAD + PREVIEW
         # ---------------------------------------------------------
         output = BytesIO()
         with pd.ExcelWriter(output, engine='openpyxl') as writer:
@@ -153,6 +213,7 @@ if uploaded_file is not None:
         output.seek(0)
 
         st.success("✅ Processing complete! Niche se file download karein.")
+
         st.download_button(
             label="⬇ Download FINAL Excel",
             data=output,
@@ -160,7 +221,7 @@ if uploaded_file is not None:
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
 
-        st.subheader("Preview:")
+        st.subheader("📄 Preview:")
         st.dataframe(final_df)
 
     except Exception as e:
