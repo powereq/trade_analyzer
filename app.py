@@ -221,14 +221,17 @@ if uploaded_file is not None:
         final_df = final_df[final_df['Profit/Loss'] >= pnl_limit]
 
         # ---------------------------------------------------------
-        # ⭐ SYMBOL‑WISE BLANK ROW LOGIC
+        # ⭐ SYMBOL‑WISE BLANK ROW LOGIC (FIXED)
         # ---------------------------------------------------------
         final_output = []
         prev_symbol = None
 
         for _, row in final_df.iterrows():
             if prev_symbol is not None and prev_symbol != row['Symbol']:
-                final_output.append({col: '' for col in final_df.columns})
+                blank_row = {col: '' for col in final_df.columns}
+                blank_row['Profit/Loss'] = 0   # FIX
+                final_output.append(blank_row)
+
             final_output.append(row.to_dict())
             prev_symbol = row['Symbol']
 
