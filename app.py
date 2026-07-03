@@ -5,7 +5,7 @@ from io import BytesIO
 import plotly.express as px
 
 # -----------------------------
-# PDF GENERATOR (Cloud-safe HTML PDF)
+# PDF-LIKE GENERATOR (HTML-based)
 # -----------------------------
 def generate_pdf_like_file(df):
     html = """
@@ -255,7 +255,9 @@ if uploaded_files:
         except Exception as e:
             st.error(f"❌ Error in file {uploaded_file.name}: {e}")
 
+# -----------------------------
 # MERGE ALL FILES
+# -----------------------------
 if all_final_rows:
     final_df = pd.concat(all_final_rows, ignore_index=True)
 
@@ -270,9 +272,21 @@ if all_final_rows:
     # SUMMARY TAB
     with tab_summary:
         col1, col2, col3 = st.columns(3)
-        col1.markdown(f"<div class='card'><div class='card-title'>Total Symbols</div><div class='card-value'>{symbol_summary.shape[0]}</div></div>", unsafe_allow_html=True)
-        col2.markdown(f"<div class='card'><div class='card-title'>Total Clients</div><div class='card-value'>{client_summary.shape[0]}</div></div>", unsafe_allow_html=True)
-        col3.markdown(f"<div class='card'><div class='card-title'>Grand Total PNL</div><div class='card-value'>₹ {grand_total:,.2f}</div></div>", unsafe_allow_html=True)
+        col1.markdown(
+            f"<div class='card'><div class='card-title'>Total Symbols</div>"
+            f"<div class='card-value'>{symbol_summary.shape[0]}</div></div>",
+            unsafe_allow_html=True
+        )
+        col2.markdown(
+            f"<div class='card'><div class='card-title'>Total Clients</div>"
+            f"<div class='card-value'>{client_summary.shape[0]}</div></div>",
+            unsafe_allow_html=True
+        )
+        col3.markdown(
+            f"<div class='card'><div class='card-title'>Grand Total PNL</div>"
+            f"<div class='card-value'>₹ {grand_total:,.2f}</div></div>",
+            unsafe_allow_html=True
+        )
 
         st.subheader("📘 Symbol-wise Summary")
         st.dataframe(symbol_summary)
@@ -280,7 +294,7 @@ if all_final_rows:
         st.subheader("📙 Client-wise Summary")
         st.dataframe(client_summary)
 
-        # DOWNLOAD EXCEL + CSV + PDF
+        # DOWNLOAD EXCEL + CSV + HTML-"PDF"
         output_xlsx = BytesIO()
         with pd.ExcelWriter(output_xlsx, engine='openpyxl') as writer:
             final_df.to_excel(writer, index=False, sheet_name='FINAL_TRADES')
@@ -305,30 +319,40 @@ if all_final_rows:
 
         pdf_data = generate_pdf_like_file(final_df)
         st.download_button(
-            label="⬇ Download PDF (Browser Compatible)",
+            label="⬇ Download HTML Report (PDF-style)",
             data=pdf_data,
-            file_name="FINAL_TRADES.pdf",
-            mime="application/pdf"
+            file_name="FINAL_TRADES.html",
+            mime="text/html"
         )
 
     # TRADES TAB
     with tab_trades:
         st.subheader("📄 All Trades (Auto-colored PNL)")
         styled_df = final_df.copy()
-        st.dataframe(styled_df.style.apply(
-            lambda s: ['color: green; font-weight:bold' if (isinstance(v, (int, float)) and v > 0)
-                       else ('color: red; font-weight:bold' if isinstance(v, (int, float)) and v < 0 else '')
-                       for v in s],
-            subset=['Profit/Loss']
-        ))
+        st.dataframe(
+            styled_df.style.apply(
+                lambda s: [
+                    'color: green; font-weight:bold' if (isinstance(v, (int, float)) and v > 0)
+                    else ('color: red; font-weight:bold' if isinstance(v, (int, float)) and v < 0 else '')
+                    for v in s
+                ],
+                subset=['Profit/Loss']
+            )
+        )
 
     # CHARTS TAB
     with tab_charts:
         st.subheader("📈 Symbol-wise PNL (Bar Chart)")
         sym_chart_df = symbol_summary[symbol_summary['Profit/Loss'] != 0]
         if not sym_chart_df.empty:
-            fig_sym = px.bar(sym_chart_df, x='Symbol', y='Profit/Loss', title="Symbol-wise PNL", color='Profit/Loss',
-                             color_continuous_scale='Bluered')
+            fig_sym = px.bar(
+                sym_chart_df,
+                x='Symbol',
+                y='Profit/Loss',
+                title="Symbol-wise PNL",
+                color='Profit/Loss',
+                color_continuous_scale='Bluered'
+            )
             st.plotly_chart(fig_sym, use_container_width=True)
         else:
             st.info("No symbol PNL data to show.")
@@ -336,7 +360,12 @@ if all_final_rows:
         st.subheader("🧩 Client-wise PNL (Pie Chart)")
         cli_chart_df = client_summary[client_summary['Profit/Loss'] != 0]
         if not cli_chart_df.empty:
-            fig_cli = px.pie(cli_chart_df, names='Client', values='Profit/Loss', title="Client-wise PNL Share")
+            fig_cli = px.pie(
+                cli_chart_df,
+                names='Client',
+                values='Profit/Loss',
+                title="Client-wise PNL Share"
+            )
             st.plotly_chart(fig_cli, use_container_width=True)
         else:
             st.info("No client PNL data to show.")
