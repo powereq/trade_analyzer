@@ -5,39 +5,19 @@ from io import BytesIO
 import plotly.express as px
 
 # -----------------------------
-# PDF GENERATOR (ReportLab — Streamlit Cloud Compatible)
+# PDF GENERATOR (Cloud-safe HTML PDF)
 # -----------------------------
-from reportlab.lib.pagesizes import letter
-from reportlab.pdfgen import canvas
-
-def generate_pdf_from_df(df):
-    buffer = BytesIO()
-    c = canvas.Canvas(buffer, pagesize=letter)
-    text = c.beginText(40, 750)
-    text.setFont("Helvetica", 10)
-
-    text.textLine("TRADE REPORT")
-    text.textLine("----------------------------------------")
-
-    # Column headers
-    text.textLine(", ".join(df.columns))
-    text.textLine("----------------------------------------")
-
-    # Rows
-    for _, row in df.iterrows():
-        line = ", ".join([str(x) for x in row.values])
-        text.textLine(line)
-
-        if text.getY() < 40:
-            c.drawText(text)
-            c.showPage()
-            text = c.beginText(40, 750)
-            text.setFont("Helvetica", 10)
-
-    c.drawText(text)
-    c.save()
-    buffer.seek(0)
-    return buffer
+def generate_pdf_like_file(df):
+    html = """
+    <html>
+    <head><meta charset="UTF-8"></head>
+    <body>
+    <h2>Trade Report</h2>
+    """ + df.to_html(index=False) + """
+    </body>
+    </html>
+    """
+    return html.encode("utf-8")
 
 # -----------------------------
 # PAGE CONFIG
@@ -325,9 +305,9 @@ if all_final_rows:
             mime="text/csv"
         )
 
-        pdf_data = generate_pdf_from_df(final_df)
+        pdf_data = generate_pdf_like_file(final_df)
         st.download_button(
-            label="⬇ Download PDF (Trades Report)",
+            label="⬇ Download PDF (Browser Compatible)",
             data=pdf_data,
             file_name="FINAL_TRADES.pdf",
             mime="application/pdf"
