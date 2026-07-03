@@ -167,7 +167,6 @@ if uploaded_files:
                             profit_loss = round((sell['Order Price'] - buy['Order Price']) * qty_traded, 2)
 
                             buy_sell_results.append({
-                                'File': uploaded_file.name,
                                 'Type': 'BUY→SELL',
                                 'Client': client,
                                 'Symbol': symbol,
@@ -210,7 +209,6 @@ if uploaded_files:
                             profit_loss = round((sell['Order Price'] - buy['Order Price']) * qty_traded, 2)
 
                             sell_buy_results.append({
-                                'File': uploaded_file.name,
                                 'Type': 'SELL→BUY',
                                 'Client': client,
                                 'Symbol': symbol,
