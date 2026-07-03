@@ -47,8 +47,25 @@ body {
     margin-bottom: 20px;
 }
 
-input, select {
-    border-radius: 8px !important;
+.card {
+    padding: 18px;
+    background: #ffffff;
+    border-radius: 12px;
+    border: 1px solid #d0d0d0;
+    text-align: center;
+    box-shadow: 0px 3px 10px rgba(0,0,0,0.08);
+}
+
+.card-title {
+    font-size: 18px;
+    font-weight: 600;
+    color: #0047AB;
+}
+
+.card-value {
+    font-size: 26px;
+    font-weight: 700;
+    color: #111;
 }
 
 </style>
@@ -58,7 +75,7 @@ input, select {
 # 🔥 HEADER
 # -----------------------------
 st.markdown("<div class='big-title'>📊 Trade Analyzer</div>", unsafe_allow_html=True)
-st.markdown("<div class='sub-title'>BUY→SELL & SELL→BUY Auto Matching + PNL Filter</div>", unsafe_allow_html=True)
+st.markdown("<div class='sub-title'>BUY→SELL & SELL→BUY Auto Matching + PNL Summary Dashboard</div>", unsafe_allow_html=True)
 
 # -----------------------------
 # 🔥 INPUT BOXES (TIME + PNL)
@@ -204,7 +221,7 @@ if uploaded_file is not None:
         final_df = final_df[final_df['Profit/Loss'] >= pnl_limit]
 
         # ---------------------------------------------------------
-        # ⭐ SYMBOL‑WISE BLANK ROW LOGIC (FIXED)
+        # ⭐ SYMBOL‑WISE BLANK ROW LOGIC
         # ---------------------------------------------------------
         final_output = []
         prev_symbol = None
@@ -218,18 +235,36 @@ if uploaded_file is not None:
         final_df = pd.DataFrame(final_output)
 
         # ---------------------------------------------------------
+        # ⭐ SUMMARY CALCULATIONS
+        # ---------------------------------------------------------
+        symbol_summary = final_df.groupby('Symbol')['Profit/Loss'].sum().reset_index()
+        client_summary = final_df.groupby('Client')['Profit/Loss'].sum().reset_index()
+        grand_total = final_df['Profit/Loss'].sum()
+
+        # ---------------------------------------------------------
+        # ⭐ SUMMARY CARDS
+        # ---------------------------------------------------------
+        col1, col2, col3 = st.columns(3)
+
+        col1.markdown(f"<div class='card'><div class='card-title'>Total Symbols</div><div class='card-value'>{symbol_summary.shape[0]}</div></div>", unsafe_allow_html=True)
+        col2.markdown(f"<div class='card'><div class='card-title'>Total Clients</div><div class='card-value'>{client_summary.shape[0]}</div></div>", unsafe_allow_html=True)
+        col3.markdown(f"<div class='card'><div class='card-title'>Grand Total PNL</div><div class='card-value'>₹ {grand_total:,.2f}</div></div>", unsafe_allow_html=True)
+
+        # ---------------------------------------------------------
         # DOWNLOAD + PREVIEW
         # ---------------------------------------------------------
         output = BytesIO()
         with pd.ExcelWriter(output, engine='openpyxl') as writer:
             final_df.to_excel(writer, index=False, sheet_name='FINAL_TRADES')
+            symbol_summary.to_excel(writer, index=False, sheet_name='SYMBOL_SUMMARY')
+            client_summary.to_excel(writer, index=False, sheet_name='CLIENT_SUMMARY')
 
         output.seek(0)
 
         st.success("✅ Processing complete! Niche se file download karein.")
 
         st.download_button(
-            label="⬇ Download FINAL Excel",
+            label="⬇ Download FINAL Excel (with summaries)",
             data=output,
             file_name="FINAL_TRADES.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
@@ -237,6 +272,12 @@ if uploaded_file is not None:
 
         st.subheader("📄 Preview:")
         st.dataframe(final_df)
+
+        st.subheader("📘 Symbol-wise Summary")
+        st.dataframe(symbol_summary)
+
+        st.subheader("📙 Client-wise Summary")
+        st.dataframe(client_summary)
 
     except Exception as e:
         st.error(f"❌ Error: {e}")
