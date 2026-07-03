@@ -109,7 +109,7 @@ with logo_col:
 with title_col:
     st.markdown("<div class='big-title'>📊 Trade Analyzer</div>", unsafe_allow_html=True)
 
-st.markdown("<div class='sub-title'>BUY→SELL & SELL→BUY Auto Matching + Full PNL Dashboard</div>", unsafe_allow_html=True)
+st.markdown("<div class='sub-title'>BUY->SELL & SELL->BUY Auto Matching + Full PNL Dashboard</div>", unsafe_allow_html=True)
 
 # -----------------------------
 # INPUT BOXES
@@ -148,7 +148,7 @@ if uploaded_files:
 
             df = df.sort_values(by=['Symbol', 'Order Time'])
 
-            # BUY → SELL
+            # BUY -> SELL
             buy_sell_results = []
             df_buy_sell = df.copy()
 
@@ -190,7 +190,7 @@ if uploaded_files:
 
             buy_sell_df = pd.DataFrame(buy_sell_results)
 
-            # SELL → BUY
+            # SELL -> BUY
             sell_buy_results = []
             df_sell_buy = df.copy()
 
