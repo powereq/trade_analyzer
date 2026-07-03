@@ -3,6 +3,15 @@ import pandas as pd
 from datetime import datetime
 from io import BytesIO
 import plotly.express as px
+import pdfkit
+
+# -----------------------------
+# PDF HELPER
+# -----------------------------
+def generate_pdf_from_df(df):
+    html = df.to_html(index=False)
+    pdf = pdfkit.from_string(html, False)
+    return pdf
 
 # -----------------------------
 # PAGE CONFIG
@@ -38,7 +47,6 @@ body {{
     background-color: {bg_color};
     color: {text_color};
 }}
-
 .big-title {{
     font-size: 42px;
     font-weight: 800;
@@ -46,7 +54,6 @@ body {{
     text-align: center;
     margin-bottom: 10px;
 }}
-
 .sub-title {{
     font-size: 20px;
     font-weight: 600;
@@ -54,7 +61,6 @@ body {{
     text-align: center;
     margin-bottom: 30px;
 }}
-
 .box {{
     padding: 20px;
     background: {card_bg};
@@ -63,7 +69,6 @@ body {{
     box-shadow: 0px 3px 10px rgba(0,0,0,0.25);
     margin-bottom: 20px;
 }}
-
 .card {{
     padding: 18px;
     background: {card_bg};
@@ -72,25 +77,21 @@ body {{
     text-align: center;
     box-shadow: 0px 3px 10px rgba(0,0,0,0.25);
 }}
-
 .card-title {{
     font-size: 18px;
     font-weight: 600;
     color: {accent};
 }}
-
 .card-value {{
     font-size: 26px;
     font-weight: 700;
     color: {text_color};
 }}
-
 .logo-text {{
     font-size: 18px;
     font-weight: 700;
     color: {accent};
 }}
-
 </style>
 """, unsafe_allow_html=True)
 
@@ -238,7 +239,7 @@ if uploaded_files:
                             sells.loc[sell_idx, 'Qty'] -= qty_traded
                             buys.loc[buy_idx, 'Qty'] -= qty_traded
 
-                            if sells.loc[sell_idx, 'Qty'] == 0:
+                            if sells.loc[sell_idx]['Qty'] == 0:
                                 break
 
             sell_buy_df = pd.DataFrame(sell_buy_results)
@@ -294,7 +295,7 @@ if all_final_rows:
         st.subheader("📙 Client-wise Summary")
         st.dataframe(client_summary)
 
-        # DOWNLOAD EXCEL + CSV
+        # DOWNLOAD EXCEL + CSV + PDF
         output_xlsx = BytesIO()
         with pd.ExcelWriter(output_xlsx, engine='openpyxl') as writer:
             final_df.to_excel(writer, index=False, sheet_name='FINAL_TRADES')
@@ -315,6 +316,14 @@ if all_final_rows:
             data=csv_data,
             file_name="FINAL_TRADES.csv",
             mime="text/csv"
+        )
+
+        pdf_data = generate_pdf_from_df(final_df)
+        st.download_button(
+            label="⬇ Download PDF (Trades Report)",
+            data=pdf_data,
+            file_name="FINAL_TRADES.pdf",
+            mime="application/pdf"
         )
 
     # TRADES TAB
