@@ -3,15 +3,41 @@ import pandas as pd
 from datetime import datetime
 from io import BytesIO
 import plotly.express as px
-import pdfkit
 
 # -----------------------------
-# PDF HELPER
+# PDF GENERATOR (ReportLab — Streamlit Cloud Compatible)
 # -----------------------------
+from reportlab.lib.pagesizes import letter
+from reportlab.pdfgen import canvas
+
 def generate_pdf_from_df(df):
-    html = df.to_html(index=False)
-    pdf = pdfkit.from_string(html, False)
-    return pdf
+    buffer = BytesIO()
+    c = canvas.Canvas(buffer, pagesize=letter)
+    text = c.beginText(40, 750)
+    text.setFont("Helvetica", 10)
+
+    text.textLine("TRADE REPORT")
+    text.textLine("----------------------------------------")
+
+    # Column headers
+    text.textLine(", ".join(df.columns))
+    text.textLine("----------------------------------------")
+
+    # Rows
+    for _, row in df.iterrows():
+        line = ", ".join([str(x) for x in row.values])
+        text.textLine(line)
+
+        if text.getY() < 40:
+            c.drawText(text)
+            c.showPage()
+            text = c.beginText(40, 750)
+            text.setFont("Helvetica", 10)
+
+    c.drawText(text)
+    c.save()
+    buffer.seek(0)
+    return buffer
 
 # -----------------------------
 # PAGE CONFIG
@@ -52,7 +78,6 @@ body {{
     font-weight: 800;
     color: {accent};
     text-align: center;
-    margin-bottom: 10px;
 }}
 .sub-title {{
     font-size: 20px;
@@ -103,23 +128,17 @@ with logo_col:
     st.markdown("<div class='logo-text'>⚡ POWER TRADE</div>", unsafe_allow_html=True)
 with title_col:
     st.markdown("<div class='big-title'>📊 Trade Analyzer</div>", unsafe_allow_html=True)
+
 st.markdown("<div class='sub-title'>BUY→SELL & SELL→BUY Auto Matching + Full PNL Dashboard</div>", unsafe_allow_html=True)
 
 # -----------------------------
-# INPUT BOXES (TIME + PNL + MULTI-FILE)
+# INPUT BOXES
 # -----------------------------
 with st.container():
     st.markdown("<div class='box'>", unsafe_allow_html=True)
 
-    time_limit = st.number_input(
-        "⏱ Time difference limit (minutes)",
-        min_value=1, max_value=500, value=30
-    )
-
-    pnl_limit = st.number_input(
-        "💰 Minimum PNL filter (₹)",
-        min_value=0, max_value=1000000, value=1000
-    )
+    time_limit = st.number_input("⏱ Time difference limit (minutes)", 1, 500, 30)
+    pnl_limit = st.number_input("💰 Minimum PNL filter (₹)", 0, 1000000, 1000)
 
     uploaded_files = st.file_uploader(
         "📁 Excel file(s) upload karein (multi-file allowed)",
@@ -145,7 +164,6 @@ if uploaded_files:
 
             df['Order Time'] = pd.to_datetime(df['Order Time'], errors='coerce', dayfirst=True)
             df['Execute'] = pd.to_datetime(df['Execute'], errors='coerce').dt.time
-
             df['Date'] = df['Order Time'].dt.date
 
             df = df.sort_values(by=['Symbol', 'Order Time'])
@@ -160,16 +178,12 @@ if uploaded_files:
 
                 for buy_idx, buy in buys.iterrows():
                     for sell_idx, sell in sells.iterrows():
-
                         buy_time = datetime.combine(buy['Order Time'].date(), buy['Execute'])
                         sell_time = datetime.combine(sell['Order Time'].date(), sell['Execute'])
-
                         time_diff = (sell_time - buy_time).total_seconds() / 60
 
                         if 0 <= time_diff <= time_limit and buy['Qty'] > 0 and sell['Qty'] > 0:
-
                             qty_traded = min(buy['Qty'], sell['Qty'])
-                            rate_diff = round(sell['Order Price'] - buy['Order Price'], 2)
                             profit_loss = round((sell['Order Price'] - buy['Order Price']) * qty_traded, 2)
 
                             buy_sell_results.append({
@@ -182,10 +196,10 @@ if uploaded_files:
                                 'Sell Qty': qty_traded,
                                 'Buy Rate': buy['Order Price'],
                                 'Sell Rate': sell['Order Price'],
-                                'Rate Diff': rate_diff,
+                                'Rate Diff': round(sell['Order Price'] - buy['Order Price'], 2),
                                 'Buy Time': buy_time.strftime("%H:%M:%S"),
                                 'Sell Time': sell_time.strftime("%H:%M:%S"),
-                                'Time Diff': f"{int(time_diff // 60):02}:{int(time_diff % 60):02}:00",
+                                'Time Diff': f"{int(time_diff//60):02}:{int(time_diff%60):02}:00",
                                 'Profit/Loss': profit_loss
                             })
 
@@ -207,16 +221,12 @@ if uploaded_files:
 
                 for sell_idx, sell in sells.iterrows():
                     for buy_idx, buy in buys.iterrows():
-
                         sell_time = datetime.combine(sell['Order Time'].date(), sell['Execute'])
                         buy_time = datetime.combine(buy['Order Time'].date(), buy['Execute'])
-
                         time_diff = (buy_time - sell_time).total_seconds() / 60
 
                         if 0 <= time_diff <= time_limit and sell['Qty'] > 0 and buy['Qty'] > 0:
-
                             qty_traded = min(sell['Qty'], buy['Qty'])
-                            rate_diff = round(sell['Order Price'] - buy['Order Price'], 2)
                             profit_loss = round((sell['Order Price'] - buy['Order Price']) * qty_traded, 2)
 
                             sell_buy_results.append({
@@ -229,25 +239,23 @@ if uploaded_files:
                                 'Sell Qty': qty_traded,
                                 'Sell Rate': sell['Order Price'],
                                 'Buy Rate': buy['Order Price'],
-                                'Rate Diff': rate_diff,
+                                'Rate Diff': round(sell['Order Price'] - buy['Order Price'], 2),
                                 'Sell Time': sell_time.strftime("%H:%M:%S"),
                                 'Buy Time': buy_time.strftime("%H:%M:%S"),
-                                'Time Diff': f"{int(time_diff // 60):02}:{int(time_diff % 60):02}:00",
+                                'Time Diff': f"{int(time_diff//60):02}:{int(time_diff%60):02}:00",
                                 'Profit/Loss': profit_loss
                             })
 
                             sells.loc[sell_idx, 'Qty'] -= qty_traded
                             buys.loc[buy_idx, 'Qty'] -= qty_traded
 
-                            if sells.loc[sell_idx]['Qty'] == 0:
+                            if sells.loc[sell_idx, 'Qty'] == 0:
                                 break
 
             sell_buy_df = pd.DataFrame(sell_buy_results)
 
             final_df = pd.concat([buy_sell_df, sell_buy_df], ignore_index=True)
-
             final_df = final_df.sort_values(by=['Symbol'])
-
             final_df = final_df[final_df['Profit/Loss'] >= pnl_limit]
 
             # SYMBOL-WISE BLANK ROW
@@ -264,7 +272,6 @@ if uploaded_files:
                 prev_symbol = row['Symbol']
 
             final_df = pd.DataFrame(final_output)
-
             all_final_rows.append(final_df)
 
         except Exception as e:
