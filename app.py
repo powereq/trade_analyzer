@@ -245,62 +245,56 @@ if uploaded_files:
             buy_sell_df = pd.DataFrame(buy_sell_results)
 
             # -----------------------------
-            # SELL -> BUY (FIXED)
-            # -----------------------------
             # SELL -> BUY (FINAL FIX)
-sell_buy_results = []
-df_sell_buy = df.copy()
+            # -----------------------------
+            sell_buy_results = []
+            df_sell_buy = df.copy()
 
-for (client, symbol), group in df_sell_buy.groupby(['Client', 'Symbol']):
-    sells = group[group['B/S'].str.upper() == 'SELL'].copy()
-    buys = group[group['B/S'].str.upper() == 'BUY'].copy()
+            for (client, symbol), group in df_sell_buy.groupby(['Client', 'Symbol']):
+                sells = group[group['B/S'].str.upper() == 'SELL'].copy()
+                buys = group[group['B/S'].str.upper() == 'BUY'].copy()
 
-    for sell_idx, sell in sells.iterrows():
-        for buy_idx, buy in buys.iterrows():
+                for sell_idx, sell in sells.iterrows():
+                    for buy_idx, buy in buys.iterrows():
 
-            sell_time = datetime.combine(sell['Order Time'].date(), sell['Execute'])
-            buy_time = datetime.combine(buy['Order Time'].date(), buy['Execute'])
+                        sell_time = datetime.combine(sell['Order Time'].date(), sell['Execute'])
+                        buy_time = datetime.combine(buy['Order Time'].date(), buy['Execute'])
 
-            # ⭐ FIX‑1: SELL time must be BEFORE BUY time
-            if buy_time <= sell_time:
-                continue
+                        # SELL time must be BEFORE BUY time
+                        if buy_time <= sell_time:
+                            continue
 
-            # ⭐ FIX‑2: Time difference must be positive
-            time_diff = (buy_time - sell_time).total_seconds() / 60
-            if time_diff < 0:
-                continue
+                        time_diff = (buy_time - sell_time).total_seconds() / 60
 
-            # ⭐ FIX‑3: Time limit check
-            if time_diff > time_limit:
-                continue
+                        # Positive and within limit
+                        if time_diff < 0 or time_diff > time_limit:
+                            continue
 
-            # ⭐ FIX‑4: Qty check
-            if sell['Qty'] > 0 and buy['Qty'] > 0:
-                qty_traded = min(sell['Qty'], buy['Qty'])
-                profit_loss = round((sell['Order Price'] - buy['Order Price']) * qty_traded, 2)
+                        if sell['Qty'] > 0 and buy['Qty'] > 0:
+                            qty_traded = min(sell['Qty'], buy['Qty'])
+                            profit_loss = round((sell['Order Price'] - buy['Order Price']) * qty_traded, 2)
 
-                sell_buy_results.append({
-                    'Type': 'SELL->BUY',
-                    'Client': client,
-                    'Symbol': symbol,
-                    'Date': sell['Date'],
-                    'Buy Qty': qty_traded,
-                    'Sell Qty': qty_traded,
-                    'Sell Rate': sell['Order Price'],
-                    'Buy Rate': buy['Order Price'],
-                    'Rate Diff': round(sell['Order Price'] - buy['Order Price'], 2),
-                    'Sell Time': sell_time.strftime("%H:%M:%S"),
-                    'Buy Time': buy_time.strftime("%H:%M:%S"),
-                    'Time Diff': f"{int(time_diff//60):02}:{int(time_diff%60):02}:00",
-                    'Profit/Loss': profit_loss
-                })
+                            sell_buy_results.append({
+                                'Type': 'SELL->BUY',
+                                'Client': client,
+                                'Symbol': symbol,
+                                'Date': sell['Date'],
+                                'Buy Qty': qty_traded,
+                                'Sell Qty': qty_traded,
+                                'Sell Rate': sell['Order Price'],
+                                'Buy Rate': buy['Order Price'],
+                                'Rate Diff': round(sell['Order Price'] - buy['Order Price'], 2),
+                                'Sell Time': sell_time.strftime("%H:%M:%S"),
+                                'Buy Time': buy_time.strftime("%H:%M:%S"),
+                                'Time Diff': f"{int(time_diff//60):02}:{int(time_diff%60):02}:00",
+                                'Profit/Loss': profit_loss
+                            })
 
-                # FIFO reduce qty
-                sells.loc[sell_idx, 'Qty'] -= qty_traded
-                buys.loc[buy_idx, 'Qty'] -= qty_traded
+                            sells.loc[sell_idx, 'Qty'] -= qty_traded
+                            buys.loc[buy_idx, 'Qty'] -= qty_traded
 
-                if sells.loc[sell_idx, 'Qty'] == 0:
-                    break
+                            if sells.loc[sell_idx, 'Qty'] == 0:
+                                break
 
             sell_buy_df = pd.DataFrame(sell_buy_results)
 
