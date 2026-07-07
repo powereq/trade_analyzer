@@ -245,7 +245,7 @@ if uploaded_files:
             buy_sell_df = pd.DataFrame(buy_sell_results)
 
             # -----------------------------
-            # SELL -> BUY (FINAL FIX)
+            # SELL -> BUY (STRICT FIX)
             # -----------------------------
             sell_buy_results = []
             df_sell_buy = df.copy()
