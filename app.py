@@ -200,9 +200,7 @@ if uploaded_files:
 
             df = df.sort_values(by=['Symbol', 'Order Time'])
 
-            # -----------------------------
             # BUY -> SELL
-            # -----------------------------
             buy_sell_results = []
             df_buy_sell = df.copy()
 
@@ -244,9 +242,7 @@ if uploaded_files:
 
             buy_sell_df = pd.DataFrame(buy_sell_results)
 
-            # -----------------------------
-            # SELL -> BUY (FIXED)
-            # -----------------------------
+            # SELL -> BUY
             sell_buy_results = []
             df_sell_buy = df.copy()
 
@@ -256,21 +252,11 @@ if uploaded_files:
 
                 for sell_idx, sell in sells.iterrows():
                     for buy_idx, buy in buys.iterrows():
-
                         sell_time = datetime.combine(sell['Order Time'].date(), sell['Execute'])
                         buy_time = datetime.combine(buy['Order Time'].date(), buy['Execute'])
-
-                        # ⭐ FIX-1: SELL time must be BEFORE BUY time
-                        if buy_time <= sell_time:
-                            continue
-
                         time_diff = (buy_time - sell_time).total_seconds() / 60
 
-                        # ⭐ FIX-2: Negative or out-of-limit time skip
-                        if time_diff < 0 or time_diff > time_limit:
-                            continue
-
-                        if sell['Qty'] > 0 and buy['Qty'] > 0:
+                        if 0 <= time_diff <= time_limit and sell['Qty'] > 0 and buy['Qty'] > 0:
                             qty_traded = min(sell['Qty'], buy['Qty'])
                             profit_loss = round((sell['Order Price'] - buy['Order Price']) * qty_traded, 2)
 
@@ -298,9 +284,6 @@ if uploaded_files:
 
             sell_buy_df = pd.DataFrame(sell_buy_results)
 
-            # -----------------------------
-            # FINAL MERGE + FILTER
-            # -----------------------------
             final_df = pd.concat([buy_sell_df, sell_buy_df], ignore_index=True)
             final_df = final_df.sort_values(by=['Symbol'])
             final_df = final_df[final_df['Profit/Loss'] >= pnl_limit]
